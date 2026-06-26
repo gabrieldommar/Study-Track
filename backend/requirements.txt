@@ -9,3 +9,4 @@ passlib[bcrypt]
 bcrypt
 google-auth
 psycopg2-binary
+requests
