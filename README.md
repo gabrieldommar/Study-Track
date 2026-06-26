@@ -2,7 +2,6 @@
 
 Aplicación web para planificar y registrar tiempo de estudio y hábitos, con agenda, estadísticas y autenticación (JWT propio + Google).
 
-Construida con un workflow multi-agente (ver [SETUP.md](SETUP.md) para el sistema de agentes).
 
 ## Stack
 
@@ -108,9 +107,6 @@ App en `http://localhost:5173`.
 
 No hay migraciones (Alembic) en el MVP: las tablas se crean con `create_all` al arrancar.
 
-## API
-
-Contrato completo en [memory/api_contract.md](memory/api_contract.md). Base: `http://localhost:8000/api`, auth por `Authorization: Bearer <token>`.
 
 ## Posibles mejoras
 
