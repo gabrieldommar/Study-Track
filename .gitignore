@@ -1,0 +1,32 @@
+# Secretos / entorno
+.env
+*.env
+!.env.example
+
+# Python / backend
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.db
+*.sqlite3
+
+# Node / frontend
+node_modules/
+dist/
+.vite/
+npm-debug.log*
+
+# Editor / sistema
+.claude/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Workflow multi-agente (no es parte de la app)
+AGENT.md
+SETUP.md
+agents/
+skills/
+memory/
