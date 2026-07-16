@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 
-import { api } from "../services/apiClient";
+import { habitService } from "../services/habitService";
 import { sessionService } from "../services/sessionService";
 import { toISODate } from "../utils/dates";
 
-// Carga las sesiones y registros de hábitos de un rango y los agrupa por día.
+// Carga sesiones y ocurrencias de hábitos de un rango, agrupadas por día.
+// Expone acciones para registrar horas cumplidas.
 export function useCalendar(from, to) {
-  const [data, setData] = useState({ days: [], habitNames: {} });
+  const [data, setData] = useState({ byDate: {}, habitNames: {} });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -17,26 +18,20 @@ export function useCalendar(from, to) {
     setLoading(true);
     setError(null);
     try {
-      // Habits para resolver el nombre de cada registro (los logs solo traen habit_id)
       const [calendar, habits] = await Promise.all([
         sessionService.calendar(fromISO, toISO),
-        api.get("/habits"),
+        habitService.list(),
       ]);
       const habitNames = Object.fromEntries(habits.map((h) => [h.id, h.name]));
 
-      // Agrupa por fecha: { date: { sessions: [], logs: [] } }
       const byDate = {};
       for (const s of calendar.sessions) {
-        (byDate[s.date] ??= { sessions: [], logs: [] }).sessions.push(s);
+        (byDate[s.date] ??= { sessions: [], entries: [] }).sessions.push(s);
       }
-      for (const log of calendar.habit_logs) {
-        (byDate[log.date] ??= { sessions: [], logs: [] }).logs.push(log);
+      for (const e of calendar.habit_entries) {
+        (byDate[e.date] ??= { sessions: [], entries: [] }).entries.push(e);
       }
-      const days = Object.entries(byDate)
-        .map(([date, items]) => ({ date, ...items }))
-        .sort((a, b) => a.date.localeCompare(b.date));
-
-      setData({ days, habitNames });
+      setData({ byDate, habitNames });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -48,5 +43,15 @@ export function useCalendar(from, to) {
     load();
   }, [load]);
 
-  return { ...data, loading, error, reload: load };
+  const completeSession = useCallback(async (id, hours) => {
+    await sessionService.update(id, { completed_hours: hours, status: "completed" });
+    await load();
+  }, [load]);
+
+  const completeEntry = useCallback(async (id, hours) => {
+    await habitService.updateEntry(id, { completed_hours: hours, status: "completed" });
+    await load();
+  }, [load]);
+
+  return { ...data, loading, error, reload: load, completeSession, completeEntry };
 }

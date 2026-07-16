@@ -15,10 +15,12 @@ Aplicación web para planificar y registrar tiempo de estudio y hábitos, con ag
 ## Funcionalidades
 
 - **Login / Registro** con email+contraseña o cuenta de Google.
-- **Estudio**: sesiones planeadas/completadas por categoría (con jerarquía de categorías).
-- **Agenda**: vista semana/mes que combina sesiones y registros de hábitos por día.
-- **Hábitos**: hábitos diarios/semanales con horas objetivo y registro de cumplimiento.
+- **Estudio**: planes por categoría; se agendan días concretos con **hora de inicio** y **horas planeadas por día**, con opción de **repetir cada semana**. Cada día genera una ocurrencia.
+- **Hábitos**: misma lógica de agendado que estudio (días + horario + horas por día + recurrencia semanal).
+- **Agenda**: **calendario mensual** con el día actual resaltado; al seleccionar un día se ve el detalle de sus actividades (horario, planeado vs. cumplido, nombre) y se **registran las horas cumplidas**.
 - **Estadísticas**: gráficas de planeado-vs-completado (estudio) y objetivo-vs-cumplido (hábitos).
+
+> **Fase 2 (agendado + recurrencia):** las actividades se modelan como *definición + ocurrencias por día*. La recurrencia semanal se materializa hasta un horizonte (fin del mes siguiente) y se **extiende de forma perezosa** al navegar a fechas futuras. Detalle en [memory/decisions.md](memory/decisions.md).
 
 ## Estructura
 
@@ -29,15 +31,17 @@ backend/
     config.py          # settings desde .env
     database.py        # engine + Base SQLAlchemy
     security.py        # hashing y JWT
-    models/            # users, categories, study_sessions, habits, habit_logs
-    schemas/           # Pydantic
+    models/            # users, categories, study_plans, study_sessions, habits, habit_entries
+    schemas/           # Pydantic (+ scheduling.py: DaySpec compartido)
     routes/            # auth, categories, sessions, habits, calendar
-    services/          # lógica de negocio + stats_utils (agregación temporal)
+    services/          # lógica de negocio + scheduling_service (recurrencia) + stats_utils
+  scripts/
+    migrate_phase2.py  # migración idempotente de la Fase 2
 frontend/
   src/
     pages/             # LoginPage, AgendaPage, SessionsPage, HabitsPage, StatsPage
-    components/        # ui/ (Button, Input, Select, Modal, Spinner, Feedback), auth/, layout/, sessions/, habits/
-    hooks/             # useSessions, useCategories, useCalendar, useHabits, useHabitLogs, useStats
+    components/        # ui/, auth/, layout/, sessions/, habits/, scheduling/ (SchedulePicker)
+    hooks/             # useSessions, useCategories, useCalendar, useHabits, useStats
     services/          # apiClient + *Service por entidad
     context/           # AuthContext
     utils/             # dates.js
@@ -66,6 +70,13 @@ uvicorn app.main:app --reload --port 8000
 
 API en `http://localhost:8000` · docs interactivas en `http://localhost:8000/docs` · healthcheck en `/api/health`.
 Las tablas SQLite se crean automáticamente al primer arranque (`studytrack.db`).
+
+> **Si ya tenías una base de datos de la Fase 1**, aplicá la migración de la Fase 2 (agrega tablas/columnas de agendado y migra registros de hábitos, idempotente):
+> ```bash
+> cd backend && python -m scripts.migrate_phase2
+> ```
+
+> **Nota de entorno (bcrypt):** con `bcrypt` 4.x, `passlib` 1.7.4 puede fallar el hashing en `register`/`login` (`password cannot be longer than 72 bytes`). Si te pasa, fijá `pip install "bcrypt<4.1"` o actualizá a `passlib>=1.7.5`. No afecta al resto de la app (agenda/estudio/hábitos/stats).
 
 ### 2. Frontend
 

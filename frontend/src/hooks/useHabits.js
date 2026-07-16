@@ -25,8 +25,8 @@ export function useHabits() {
   }, [load]);
 
   const create = useCallback(async (data) => {
-    const created = await habitService.create(data);
-    setHabits((prev) => [...prev, created]);
+    const created = await habitService.create(data); // { habit, occurrences }
+    setHabits((prev) => [...prev, created.habit]);
     return created;
   }, []);
 

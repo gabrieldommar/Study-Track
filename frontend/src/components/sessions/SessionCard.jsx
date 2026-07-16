@@ -11,7 +11,10 @@ export default function SessionCard({ session, onDelete }) {
           <p className="truncate font-medium text-ink">{session.topic}</p>
         </div>
         <p className="mt-0.5 truncate text-sm text-muted">{session.category_path}</p>
-        <p className="mt-1 text-xs text-muted">{formatDayLabel(session.date)}</p>
+        <p className="mt-1 text-xs text-muted">
+          {formatDayLabel(session.date)}
+          {session.start_time ? ` · ${session.start_time.slice(0, 5)}` : ""}
+        </p>
       </div>
       <div className="flex items-center gap-4 text-right">
         <div>

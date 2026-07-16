@@ -24,7 +24,7 @@ export default function SessionsPage() {
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl text-ink">Estudio</h1>
-          <p className="text-sm text-muted">Registrá sesiones planeadas y completadas.</p>
+          <p className="text-sm text-muted">Creá planes de estudio agendados; registrá horas cumplidas en la Agenda.</p>
         </div>
         <Button onClick={() => setFormOpen(true)}>+ Nueva sesión</Button>
       </div>

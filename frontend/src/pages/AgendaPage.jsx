@@ -1,121 +1,200 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import Button from "../components/ui/Button";
+import Input from "../components/ui/Input";
 import Spinner from "../components/ui/Spinner";
 import { EmptyState, ErrorMessage } from "../components/ui/Feedback";
 import { useCalendar } from "../hooks/useCalendar";
 import {
-  addDays,
   addMonths,
   endOfMonth,
   endOfWeek,
   formatDayLabel,
-  formatRangeLabel,
   startOfMonth,
   startOfWeek,
+  toISODate,
 } from "../utils/dates";
 
-// Devuelve el rango [from, to] según el modo y la fecha ancla.
-function rangeFor(anchor, mode) {
-  return mode === "month"
-    ? [startOfMonth(anchor), endOfMonth(anchor)]
-    : [startOfWeek(anchor), endOfWeek(anchor)];
+const WEEKDAY_SHORT = ["lun", "mar", "mié", "jue", "vie", "sáb", "dom"];
+
+const isSameDay = (a, b) =>
+  a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+
+function monthGrid(anchor) {
+  const first = startOfWeek(startOfMonth(anchor));
+  return Array.from({ length: 42 }, (_, i) => {
+    const d = new Date(first);
+    d.setDate(first.getDate() + i);
+    return d;
+  });
 }
 
 export default function AgendaPage() {
-  const [mode, setMode] = useState("week");
+  const today = useMemo(() => new Date(), []);
   const [anchor, setAnchor] = useState(new Date());
-  const [from, to] = rangeFor(anchor, mode);
-  const { days, habitNames, loading, error } = useCalendar(from, to);
+  const [selectedISO, setSelectedISO] = useState(toISODate(new Date()));
 
-  const shift = (dir) =>
-    setAnchor((prev) => (mode === "month" ? addMonths(prev, dir) : addDays(prev, dir * 7)));
+  const gridFrom = startOfWeek(startOfMonth(anchor));
+  const gridTo = endOfWeek(endOfMonth(anchor));
+  const { byDate, habitNames, loading, error, completeSession, completeEntry } =
+    useCalendar(gridFrom, gridTo);
+
+  const grid = useMemo(() => monthGrid(anchor), [anchor]);
+
+  const selectedActivities = useMemo(() => {
+    const day = byDate[selectedISO];
+    if (!day) return [];
+    const sessions = day.sessions.map((s) => ({
+      key: `s-${s.id}`, id: s.id, kind: "session", name: s.topic, sub: s.category_path,
+      start_time: s.start_time, planned_hours: s.planned_hours, completed_hours: s.completed_hours, status: s.status,
+    }));
+    const entries = day.entries.map((e) => ({
+      key: `e-${e.id}`, id: e.id, kind: "entry", name: habitNames[e.habit_id] ?? "Hábito", sub: "hábito",
+      start_time: e.start_time, planned_hours: e.planned_hours, completed_hours: e.completed_hours, status: e.status,
+    }));
+    return [...sessions, ...entries].sort((a, b) =>
+      (a.start_time || "99").localeCompare(b.start_time || "99")
+    );
+  }, [byDate, selectedISO, habitNames]);
+
+  const onComplete = (act, hours) =>
+    act.kind === "session" ? completeSession(act.id, hours) : completeEntry(act.id, hours);
 
   return (
     <div>
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl text-ink">Agenda</h1>
-          <p className="text-sm text-muted">Tus sesiones y hábitos en el tiempo.</p>
-        </div>
-        <div className="inline-flex rounded-lg bg-primary-soft p-1">
-          {["week", "month"].map((m) => (
-            <button
-              key={m}
-              onClick={() => setMode(m)}
-              className={`rounded-md px-3 py-1 text-sm font-medium transition-colors ${
-                mode === m ? "bg-surface text-primary-dark shadow-sm" : "text-muted hover:text-ink"
-              }`}
-            >
-              {m === "week" ? "Semana" : "Mes"}
-            </button>
-          ))}
-        </div>
+      <div className="mb-6">
+        <h1 className="text-2xl text-ink">Agenda</h1>
+        <p className="text-sm text-muted">Tu mes de estudio y hábitos. Seleccioná un día para ver el detalle.</p>
       </div>
 
       <div className="mb-4 flex items-center justify-between">
-        <p className="font-display text-lg capitalize text-ink">{formatRangeLabel(from, to, mode)}</p>
+        <p className="font-display text-lg capitalize text-ink">
+          {anchor.toLocaleDateString("es", { month: "long", year: "numeric" })}
+        </p>
         <div className="flex items-center gap-2">
-          <Button variant="ghost" className="py-1.5" onClick={() => shift(-1)} aria-label="Anterior">
-            ‹
-          </Button>
-          <Button variant="ghost" className="py-1.5" onClick={() => setAnchor(new Date())}>
-            Hoy
-          </Button>
-          <Button variant="ghost" className="py-1.5" onClick={() => shift(1)} aria-label="Siguiente">
-            ›
-          </Button>
+          <Button variant="ghost" className="py-1.5" onClick={() => setAnchor(addMonths(anchor, -1))} aria-label="Mes anterior">‹</Button>
+          <Button variant="ghost" className="py-1.5" onClick={() => { setAnchor(new Date()); setSelectedISO(toISODate(new Date())); }}>Hoy</Button>
+          <Button variant="ghost" className="py-1.5" onClick={() => setAnchor(addMonths(anchor, 1))} aria-label="Mes siguiente">›</Button>
         </div>
       </div>
 
-      {loading ? (
-        <Spinner label="Cargando agenda..." />
-      ) : error ? (
+      {error ? (
         <ErrorMessage message={error} />
-      ) : !days.length ? (
-        <EmptyState message="No hay actividad en este período." />
       ) : (
-        <div className="space-y-4">
-          {days.map((day) => (
-            <DayBlock key={day.date} day={day} habitNames={habitNames} />
-          ))}
+        <div className="grid gap-6 lg:grid-cols-[1fr_20rem]">
+          {/* Grilla del mes */}
+          <div className="card p-3">
+            <div className="grid grid-cols-7 gap-1 text-center text-[11px] text-muted">
+              {WEEKDAY_SHORT.map((d) => (
+                <div key={d} className="py-1">{d}</div>
+              ))}
+            </div>
+            <div className="grid grid-cols-7 gap-1">
+              {grid.map((date) => {
+                const iso = toISODate(date);
+                const inMonth = date.getMonth() === anchor.getMonth();
+                const day = byDate[iso];
+                const count = day ? day.sessions.length + day.entries.length : 0;
+                const isToday = isSameDay(date, today);
+                const isSelected = iso === selectedISO;
+                return (
+                  <button
+                    key={iso}
+                    type="button"
+                    onClick={() => setSelectedISO(iso)}
+                    className={`flex h-16 flex-col items-center justify-start gap-1 rounded-lg p-1.5 text-sm transition-colors
+                      ${isSelected ? "bg-primary text-white" : "hover:bg-primary-soft text-ink"}
+                      ${inMonth ? "" : "opacity-40"}
+                      ${isToday && !isSelected ? "ring-1 ring-primary" : ""}`}
+                  >
+                    <span className={isToday && !isSelected ? "font-semibold text-primary" : ""}>{date.getDate()}</span>
+                    {count > 0 && (
+                      <span className={`text-[10px] ${isSelected ? "text-white/90" : "text-muted"}`}>
+                        {count} act.
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Detalle del día */}
+          <div className="card p-4">
+            <p className="mb-3 text-sm font-medium capitalize text-ink">{formatDayLabel(selectedISO)}</p>
+            {loading ? (
+              <Spinner label="Cargando..." />
+            ) : !selectedActivities.length ? (
+              <EmptyState message="Sin actividades este día." />
+            ) : (
+              <div className="space-y-3">
+                {selectedActivities.map((act) => (
+                  <ActivityRow key={act.key} activity={act} onComplete={onComplete} />
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
   );
 }
 
-function DayBlock({ day, habitNames }) {
+function ActivityRow({ activity, onComplete }) {
+  const isDone = activity.status === "completed";
+  const [hours, setHours] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState(null);
+
+  const save = async () => {
+    if (!(Number(hours) > 0)) return setErr("Horas > 0");
+    setErr(null);
+    setSaving(true);
+    try {
+      await onComplete(activity, Number(hours));
+    } catch (e) {
+      setErr(e.message);
+      setSaving(false);
+    }
+  };
+
   return (
-    <div className="card p-4">
-      <p className="mb-3 text-sm font-medium capitalize text-muted">{formatDayLabel(day.date)}</p>
-      <div className="space-y-2">
-        {day.sessions.map((s) => {
-          const isDone = s.status === "completed";
-          return (
-            <div key={`s-${s.id}`} className="flex items-center justify-between gap-3 text-sm">
-              <div className="flex min-w-0 items-center gap-2">
-                <span className={`h-2 w-2 shrink-0 rounded-full ${isDone ? "bg-primary" : "bg-accent"}`} />
-                <span className="truncate text-ink">{s.topic}</span>
-                <span className="truncate text-xs text-muted">{s.category_path}</span>
-              </div>
-              <span className="shrink-0 text-muted">
-                {isDone ? `${s.completed_hours}h` : `${s.planned_hours}h`}
-              </span>
-            </div>
-          );
-        })}
-        {day.logs.map((log) => (
-          <div key={`l-${log.id}`} className="flex items-center justify-between gap-3 text-sm">
-            <div className="flex min-w-0 items-center gap-2">
-              <span className="h-2 w-2 shrink-0 rounded-full bg-primary-dark/40" />
-              <span className="truncate text-ink">{habitNames[log.habit_id] ?? "Hábito"}</span>
-              <span className="text-xs text-muted">hábito</span>
-            </div>
-            <span className="shrink-0 text-muted">{log.duration}h</span>
-          </div>
-        ))}
+    <div className="rounded-lg border border-line p-3">
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-medium text-ink">{activity.name}</p>
+          <p className="truncate text-xs text-muted">
+            {activity.start_time ? activity.start_time.slice(0, 5) + " · " : ""}{activity.sub}
+          </p>
+        </div>
+        <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] ${isDone ? "bg-primary-soft text-primary-dark" : "bg-accent/10 text-accent"}`}>
+          {isDone ? "cumplido" : "pendiente"}
+        </span>
       </div>
+
+      <div className="mt-2 flex items-center gap-4 text-xs text-muted">
+        <span>Planeado: <span className="text-ink">{activity.planned_hours}h</span></span>
+        <span>Cumplido: <span className="text-ink">{isDone ? `${activity.completed_hours}h` : "—"}</span></span>
+      </div>
+
+      {!isDone && (
+        <div className="mt-3 flex items-end gap-2 border-t border-line pt-3">
+          <Input
+            id={`done-${activity.key}`}
+            label="Horas cumplidas"
+            type="number"
+            min="0"
+            step="0.5"
+            value={hours}
+            onChange={(e) => setHours(e.target.value)}
+            className="flex-1"
+          />
+          <Button type="button" className="py-2.5" disabled={saving} onClick={save}>
+            {saving ? "..." : "Guardar"}
+          </Button>
+        </div>
+      )}
+      {err && <p className="mt-1 text-xs text-danger">{err}</p>}
     </div>
   );
 }

@@ -6,7 +6,14 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.user import User
-from app.schemas.session import SessionCreate, SessionResponse, SessionUpdate, StatRow
+from app.schemas.session import (
+    PlanCreate,
+    PlanWithOccurrences,
+    SessionCreate,
+    SessionResponse,
+    SessionUpdate,
+    StatRow,
+)
 from app.security import get_current_user
 from app.services import session_service
 
@@ -23,6 +30,21 @@ def list_sessions(
     db: Session = Depends(get_db),
 ):
     return session_service.list_sessions(db, user.id, date_from, date_to, category_id, status)
+
+
+# Rutas de plan (agendado con recurrencia). Estáticas → antes de /{session_id}.
+@router.post("/plans", response_model=PlanWithOccurrences, status_code=status.HTTP_201_CREATED)
+def create_plan(
+    data: PlanCreate, user: User = Depends(get_current_user), db: Session = Depends(get_db)
+):
+    return session_service.create_plan(db, user.id, data)
+
+
+@router.delete("/plans/{plan_id}")
+def delete_plan(
+    plan_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)
+):
+    return session_service.delete_plan(db, user.id, plan_id)
 
 
 # /stats se define antes de /{session_id} para que no lo capture la ruta dinámica

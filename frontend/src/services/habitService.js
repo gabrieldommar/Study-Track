@@ -7,14 +7,14 @@ function qs(params) {
   return "?" + new URLSearchParams(entries).toString();
 }
 
-// Endpoints de hábitos y sus registros (ver memory/api_contract.md).
+// Endpoints de hábitos (definición) y sus ocurrencias (entries). Ver memory/api_contract.md.
 export const habitService = {
   list: () => api.get("/habits"),
-  create: (data) => api.post("/habits", data),
+  create: (data) => api.post("/habits", data), // -> { habit, occurrences }
   update: (id, data) => api.put(`/habits/${id}`, data),
   remove: (id) => api.del(`/habits/${id}`),
-  logs: (id, range = {}) => api.get(`/habits/${id}/logs${qs(range)}`),
-  addLog: (id, data) => api.post(`/habits/${id}/logs`, data),
-  removeLog: (logId) => api.del(`/habits/logs/${logId}`),
+  entries: (range = {}) => api.get(`/habits/entries${qs(range)}`),
+  updateEntry: (entryId, data) => api.put(`/habits/entries/${entryId}`, data),
+  removeEntry: (entryId) => api.del(`/habits/entries/${entryId}`),
   stats: (period) => api.get(`/habits/stats${qs({ period })}`),
 };

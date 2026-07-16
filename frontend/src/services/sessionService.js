@@ -7,10 +7,12 @@ function qs(params) {
   return "?" + new URLSearchParams(entries).toString();
 }
 
-// Endpoints de sesiones de estudio y calendario (ver memory/api_contract.md).
+// Endpoints de estudio (planes + ocurrencias) y calendario. Ver memory/api_contract.md.
 export const sessionService = {
   list: (filters = {}) => api.get(`/sessions${qs(filters)}`),
-  create: (data) => api.post("/sessions", data),
+  createPlan: (data) => api.post("/sessions/plans", data), // -> { plan, occurrences }
+  removePlan: (planId) => api.del(`/sessions/plans/${planId}`),
+  create: (data) => api.post("/sessions", data), // ocurrencia suelta
   update: (id, data) => api.put(`/sessions/${id}`, data),
   remove: (id) => api.del(`/sessions/${id}`),
   stats: (period, categoryId) => api.get(`/sessions/stats${qs({ period, category_id: categoryId })}`),

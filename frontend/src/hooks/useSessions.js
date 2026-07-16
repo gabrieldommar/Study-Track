@@ -28,7 +28,7 @@ export function useSessions(filters = {}) {
   }, [load]);
 
   const create = useCallback(async (data) => {
-    await sessionService.create(data);
+    await sessionService.createPlan(data);
     await load();
   }, [load]);
 

@@ -1,4 +1,4 @@
-"""Endpoints de hábitos y registros. La lógica vive en habit_service."""
+"""Endpoints de hábitos: definición + ocurrencias (entries). Lógica en habit_service."""
 from datetime import date
 
 from fastapi import APIRouter, Depends, Query, status
@@ -8,11 +8,12 @@ from app.database import get_db
 from app.models.user import User
 from app.schemas.habit import (
     HabitCreate,
-    HabitLogCreate,
-    HabitLogResponse,
+    HabitEntryResponse,
+    HabitEntryUpdate,
     HabitResponse,
     HabitStatRow,
     HabitUpdate,
+    HabitWithOccurrences,
 )
 from app.security import get_current_user
 from app.services import habit_service
@@ -25,14 +26,14 @@ def list_habits(user: User = Depends(get_current_user), db: Session = Depends(ge
     return habit_service.list_habits(db, user.id)
 
 
-@router.post("", response_model=HabitResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=HabitWithOccurrences, status_code=status.HTTP_201_CREATED)
 def create_habit(
     data: HabitCreate, user: User = Depends(get_current_user), db: Session = Depends(get_db)
 ):
     return habit_service.create(db, user.id, data)
 
 
-# /stats antes de /{habit_id} para que no lo capture la ruta dinámica
+# Rutas estáticas (/stats, /entries) antes de la dinámica /{habit_id}
 @router.get("/stats", response_model=list[HabitStatRow])
 def habit_stats(
     period: str = Query(default="total"),
@@ -42,10 +43,30 @@ def habit_stats(
     return habit_service.stats(db, user.id, period)
 
 
-# Borrado de un registro puntual (ruta estática antes de /{habit_id}/...)
-@router.delete("/logs/{log_id}")
-def delete_log(log_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    return habit_service.delete_log(db, user.id, log_id)
+@router.get("/entries", response_model=list[HabitEntryResponse])
+def list_entries(
+    date_from: date | None = Query(default=None, alias="from"),
+    date_to: date | None = Query(default=None, alias="to"),
+    habit_id: int | None = None,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return habit_service.list_entries(db, user.id, date_from, date_to, habit_id)
+
+
+@router.put("/entries/{entry_id}", response_model=HabitEntryResponse)
+def update_entry(
+    entry_id: int,
+    data: HabitEntryUpdate,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return habit_service.update_entry(db, user.id, entry_id, data)
+
+
+@router.delete("/entries/{entry_id}")
+def delete_entry(entry_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    return habit_service.delete_entry(db, user.id, entry_id)
 
 
 @router.put("/{habit_id}", response_model=HabitResponse)
@@ -61,24 +82,3 @@ def update_habit(
 @router.delete("/{habit_id}")
 def delete_habit(habit_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     return habit_service.delete(db, user.id, habit_id)
-
-
-@router.get("/{habit_id}/logs", response_model=list[HabitLogResponse])
-def list_logs(
-    habit_id: int,
-    date_from: date | None = Query(default=None, alias="from"),
-    date_to: date | None = Query(default=None, alias="to"),
-    user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    return habit_service.list_logs(db, user.id, habit_id, date_from, date_to)
-
-
-@router.post("/{habit_id}/logs", response_model=HabitLogResponse, status_code=status.HTTP_201_CREATED)
-def create_log(
-    habit_id: int,
-    data: HabitLogCreate,
-    user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    return habit_service.create_log(db, user.id, habit_id, data)

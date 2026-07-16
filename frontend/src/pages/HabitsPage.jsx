@@ -22,7 +22,7 @@ export default function HabitsPage() {
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl text-ink">Hábitos</h1>
-          <p className="text-sm text-muted">Definí hábitos y registrá su cumplimiento.</p>
+          <p className="text-sm text-muted">Definí hábitos agendados; registrá su cumplimiento en la Agenda.</p>
         </div>
         <Button onClick={() => setFormOpen(true)}>+ Nuevo hábito</Button>
       </div>
