@@ -4,11 +4,11 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app import models  # noqa: F401  (registra los modelos en Base)
 from app.config import settings
-from app.database import Base, engine
 from app.routes import auth, calendar, categories, habits, sessions
+from app.schema_sync import sync_schema
 
-# Crea las tablas si no existen (suficiente para el MVP; sin Alembic)
-Base.metadata.create_all(bind=engine)
+# Crea tablas y agrega columnas nuevas de la Fase 2 (idempotente, SQLite/Postgres)
+sync_schema()
 
 app = FastAPI(title="StudyTrack API", debug=settings.debug)
 
